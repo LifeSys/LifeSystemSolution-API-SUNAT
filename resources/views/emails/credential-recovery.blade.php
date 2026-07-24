@@ -1,6 +1,6 @@
 @extends('emails.layout')
 
-@section('title', 'Recuperación de credenciales — API SUNAT')
+@section('title', 'Recuperación de credenciales — LifeSystemSolution API SUNAT')
 
 @section('content')
 

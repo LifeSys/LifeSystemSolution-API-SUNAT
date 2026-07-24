@@ -17,15 +17,15 @@ export default function AuthSimpleLayout({
                 <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-xl bg-card shadow-sm ring-1 ring-border">
                     <img
                         src="/logo.png"
-                        alt="Jorge Chavez API SUNAT"
+                        alt="LifeSystemSolution API SUNAT"
                         className="h-14 w-14 object-contain"
                     />
                 </div>
                 <div className="mt-1">
                     <h2 className="text-lg font-semibold tracking-tight text-foreground">
-                        Jorge Chavez
+                        LifeSystemSolution
                     </h2>
-                    <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                    <p className="text-xs font-medium tracking-widest text-muted-foreground uppercase">
                         API SUNAT
                     </p>
                 </div>

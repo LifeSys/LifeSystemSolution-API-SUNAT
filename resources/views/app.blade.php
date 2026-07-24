@@ -19,7 +19,7 @@
             })();
         </script>
 
-        {{-- Background color matching Jorge Chavez API SUNAT palette --}}
+        {{-- Background color matching LifeSystemSolution API SUNAT palette --}}
         <style>
             html {
                 background-color: hsl(0, 0%, 97%);
@@ -30,11 +30,18 @@
             }
         </style>
 
-        <title inertia>Jorge Chavez API SUNAT</title>
+        <title inertia>LifeSystemSolution API SUNAT</title>
 
-        <link rel="icon" type="image/png" href="/logo.png">
-        <link rel="shortcut icon" type="image/png" href="/logo.png">
-        <link rel="apple-touch-icon" href="/logo.png">
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+        <link rel="icon" type="image/x-icon" href="/favicon.ico">
+        <link rel="icon" type="image/png" sizes="16x16" href="/16x16.png">
+        <link rel="icon" type="image/png" sizes="24x24" href="/24x24.png">
+        <link rel="icon" type="image/png" sizes="32x32" href="/32x32.png">
+        <link rel="icon" type="image/png" sizes="48x48" href="/48x48.png">
+        <link rel="icon" type="image/png" sizes="128x128" href="/128x128.png">
+        <link rel="icon" type="image/png" sizes="256x256" href="/256x256.png">
+        <link rel="shortcut icon" href="/favicon.ico">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
