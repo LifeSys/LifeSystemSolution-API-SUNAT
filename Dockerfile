@@ -1,6 +1,5 @@
 FROM php:8.3-fpm-alpine AS base
-
-# Dependencias del sistema
+# Dependencias del sistema (agregamos nodejs y npm)
 RUN apk add --no-cache \
     postgresql-client \
     libpq-dev \
@@ -15,8 +14,9 @@ RUN apk add --no-cache \
     unzip \
     git \
     curl \
-    bash
-
+    bash \
+    nodejs \
+    npm
 # Extensiones PHP necesarias
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
@@ -30,28 +30,23 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
         intl \
         mbstring \
         opcache
-
 # Extensión Redis (phpredis) via PECL
 RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
     && pecl install redis \
     && docker-php-ext-enable redis \
     && apk del .build-deps
-
 # Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
 WORKDIR /app
-
 # Instalar dependencias PHP (sin scripts para que no falle sin APP_KEY)
 COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --ignore-platform-reqs
-
 # Copiar código fuente
 COPY . .
-
-# Autoload optimizado
+# Autoload optimizado (necesario ANTES del build de frontend, porque wayfinder usa el autoload)
 RUN composer dump-autoload --optimize
-
+# Compilar assets del frontend (Vite + Wayfinder, que ahora sí tiene PHP disponible)
+RUN npm ci && npm run build
 # Permisos de storage y cache
 RUN mkdir -p storage/app/public \
               storage/framework/sessions \
@@ -62,11 +57,8 @@ RUN mkdir -p storage/app/public \
               bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache \
     && chmod -R 775 storage bootstrap/cache
-
 # Script de arranque
 COPY docker/start.sh /start.sh
 RUN chmod +x /start.sh
-
 EXPOSE 8000
-
 CMD ["/start.sh"]
