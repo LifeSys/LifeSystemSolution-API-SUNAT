@@ -120,6 +120,10 @@ class InternalDocument extends Model implements Documentable
      * Genera el siguiente número secuencial para un tenant+tipo dado.
      * Formato: PREFIJO-YYYYMM-NNNNNN
      */
+    /**
+     * Genera el siguiente número secuencial para un tenant+tipo dado.
+     * Formato: PREFIJO-YYYYMM-NNNNNN
+     */
     public static function generateNumero(int $tenantId, string $type): string
     {
         $prefix = match ($type) {
@@ -131,10 +135,12 @@ class InternalDocument extends Model implements Documentable
         $yearMonth = now()->format('Ym');
         $pattern = "{$prefix}-{$yearMonth}-";
 
+        $start = strlen($pattern) + 1;
+
         $last = static::where('tenant_id', $tenantId)
             ->where('type', $type)
             ->where('numero', 'like', "{$pattern}%")
-            ->orderByRaw('CAST(SUBSTRING(numero, ' . (strlen($pattern) + 1) . ') AS UNSIGNED) DESC')
+            ->orderByRaw("CAST(SUBSTRING(numero FROM {$start}) AS INTEGER) DESC")
             ->lockForUpdate()
             ->value('numero');
 
@@ -145,6 +151,11 @@ class InternalDocument extends Model implements Documentable
             $next = 1;
         }
 
-        return $prefix . '-' . $yearMonth . '-' . str_pad($next, 6, '0', STR_PAD_LEFT);
+        return sprintf(
+            '%s-%s-%06d',
+            $prefix,
+            $yearMonth,
+            $next
+        );
     }
 }
