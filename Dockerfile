@@ -1,14 +1,5 @@
-# ── Etapa 1: Compilar assets del frontend (Vite) ──
-FROM node:20-alpine AS frontend
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
-COPY . .
-RUN npm run build
-
-# ── Etapa 2: Imagen PHP (tu Dockerfile original) ──
 FROM php:8.3-fpm-alpine AS base
-# Dependencias del sistema
+# Dependencias del sistema (agregamos nodejs y npm)
 RUN apk add --no-cache \
     postgresql-client \
     libpq-dev \
@@ -23,7 +14,9 @@ RUN apk add --no-cache \
     unzip \
     git \
     curl \
-    bash
+    bash \
+    nodejs \
+    npm
 # Extensiones PHP necesarias
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
@@ -50,10 +43,10 @@ COPY composer.json composer.lock ./
 RUN composer install --no-dev --no-scripts --no-autoloader --ignore-platform-reqs
 # Copiar código fuente
 COPY . .
-# Copiar assets ya compilados desde la etapa frontend
-COPY --from=frontend /app/public/build ./public/build
-# Autoload optimizado
+# Autoload optimizado (necesario ANTES del build de frontend, porque wayfinder usa el autoload)
 RUN composer dump-autoload --optimize
+# Compilar assets del frontend (Vite + Wayfinder, que ahora sí tiene PHP disponible)
+RUN npm ci && npm run build
 # Permisos de storage y cache
 RUN mkdir -p storage/app/public \
               storage/framework/sessions \
