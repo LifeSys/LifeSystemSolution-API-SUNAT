@@ -60,7 +60,7 @@ export default function Register({ esPrimerUsuario = true }: Props) {
                                     tabIndex={1}
                                     autoComplete="name"
                                     name="name"
-                                    placeholder="Jorge Chavez"
+                                    placeholder="LifeSystemSolution"
                                 />
                                 <InputError
                                     message={errors.name}
@@ -69,7 +69,9 @@ export default function Register({ esPrimerUsuario = true }: Props) {
                             </div>
 
                             <div className="grid gap-2">
-                                <Label htmlFor="email">Correo electrónico</Label>
+                                <Label htmlFor="email">
+                                    Correo electrónico
+                                </Label>
                                 <Input
                                     id="email"
                                     type="email"

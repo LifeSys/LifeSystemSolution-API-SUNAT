@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'API SUNAT')</title>
+    <title>@yield('title', 'LifeSystemSolution API SUNAT')</title>
 </head>
 <body style="margin:0;padding:0;background-color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;-webkit-text-size-adjust:100%;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f1f5f9;padding:48px 16px;">
@@ -42,7 +42,7 @@
                         <table width="100%" cellpadding="0" cellspacing="0">
                             <tr>
                                 <td style="padding:20px 36px;border-top:1px solid #f1f5f9;text-align:center;">
-                                    <span style="font-size:11px;color:#cbd5e1;">© {{ date('Y') }} API SUNAT &nbsp;·&nbsp; No respondas a este correo</span>
+                                    <span style="font-size:11px;color:#cbd5e1;">© {{ date('Y') }} LifeSystemSolution API SUNAT &nbsp;·&nbsp; No respondas a este correo</span>
                                 </td>
                             </tr>
                         </table>
