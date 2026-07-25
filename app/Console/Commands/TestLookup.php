@@ -2,51 +2,42 @@
 
 namespace App\Console\Commands;
 
+use App\Consultas\Exceptions\ConsultaException;
+use App\Consultas\Services\ConsultaService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Http;
 
 class TestLookup extends Command
 {
-    protected $signature = 'lookup:test {numero} {--tipo=6 : 6=RUC, 1=DNI}';
-    protected $description = 'Prueba el lookup de RUC/DNI contra apis.net.pe';
+    protected $signature = 'consultas:test {numero} {--tipo=ruc : dni|ruc|dni_ruc}';
 
-    public function handle(): int
+    protected $description = 'Prueba una consulta DNI/RUC contra el proveedor activo (ApiPeru.dev por defecto)';
+
+    public function handle(ConsultaService $consultas): int
     {
         $numero = $this->argument('numero');
-        $tipo   = $this->option('tipo');
+        $tipo = $this->option('tipo');
 
-        $token   = config('facturacion.lookup.token');
-        $baseUrl = config('facturacion.lookup.base_url');
-
-        $this->line("Token configurado : " . ($token ? substr($token, 0, 10) . '...' : '(vacío)'));
-        $this->line("Base URL          : {$baseUrl}");
-
-        if (empty($token)) {
-            $this->error('APIS_NET_PE_TOKEN está vacío. Verifica las variables de Railway.');
-            return 1;
-        }
-
-        $endpoint = $tipo === '6'
-            ? "{$baseUrl}/v2/sunat/ruc"
-            : "{$baseUrl}/v2/reniec/dni";
-
-        $this->line("Endpoint          : GET {$endpoint}?numero={$numero}");
+        $this->line('Proveedor activo : ' . config('consultas.default_provider'));
+        $this->line("Tipo de consulta : {$tipo}");
+        $this->line("Número           : {$numero}");
         $this->line('');
 
         try {
-            $response = Http::timeout(10)
-                ->withToken($token)
-                ->acceptJson()
-                ->get($endpoint, ['numero' => $numero]);
+            $resultado = match ($tipo) {
+                'dni' => $consultas->consultarDni($numero),
+                'ruc' => $consultas->consultarRuc($numero),
+                'dni_ruc' => $consultas->consultarDniRuc($numero),
+                default => throw new \InvalidArgumentException("Tipo inválido: {$tipo}. Usa dni, ruc o dni_ruc."),
+            };
 
-            $this->line("HTTP Status: {$response->status()}");
-            $this->line("Body:");
-            $this->line(json_encode($response->json(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-        } catch (\Throwable $e) {
-            $this->error("Excepción: " . $e->getMessage());
-            return 1;
+            $this->info('Resultado:');
+            $this->line(json_encode($resultado->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+
+            return self::SUCCESS;
+        } catch (ConsultaException $excepcion) {
+            $this->error("Error ({$excepcion->httpStatus}): " . $excepcion->getMessage());
+
+            return self::FAILURE;
         }
-
-        return 0;
     }
 }
