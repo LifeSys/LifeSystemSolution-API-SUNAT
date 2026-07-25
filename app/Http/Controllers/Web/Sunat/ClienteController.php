@@ -2,14 +2,20 @@
 
 namespace App\Http\Controllers\Web\Sunat;
 
+use App\Consultas\Exceptions\ConsultaException;
+use App\Consultas\Services\ConsultaService;
 use App\Http\Controllers\Controller;
 use App\Models\Client;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 
 class ClienteController extends Controller
 {
+    public function __construct(
+        private readonly ConsultaService $consultas,
+    ) {
+    }
+
     public function index(): \Inertia\Response|\Illuminate\Http\RedirectResponse
     {
         $tenant = auth()->user()->tenants()->first();
@@ -99,47 +105,29 @@ class ClienteController extends Controller
     public function lookupRuc(Request $request): \Illuminate\Http\JsonResponse
     {
         $numero = trim($request->input('numero', ''));
-        $tipo   = $request->input('tipo', '6');
 
         if (strlen($numero) < 8) {
             return response()->json(['error' => 'Número muy corto'], 422);
         }
 
-        $token = config('services.apis_net_pe.token');
-        if (! $token) {
-            return response()->json(['error' => 'API de consulta no configurada. Agrega APIS_NET_PE_TOKEN en .env'], 503);
-        }
+        $tenant = auth()->user()->tenants()->first();
 
         try {
-            $esRuc     = strlen($numero) === 11;
-            $endpoint  = $esRuc
-                ? "https://api.decolecta.com/v1/sunat/ruc?numero={$numero}"
-                : "https://api.decolecta.com/v1/reniec/dni?numero={$numero}";
+            $esRuc = strlen($numero) === 11;
 
-            $response = Http::withToken($token)->withoutVerifying()->timeout(8)->get($endpoint);
+            $resultado = $esRuc
+                ? $this->consultas->consultarRuc($numero, tenantId: $tenant?->id, request: $request)
+                : $this->consultas->consultarDni($numero, tenantId: $tenant?->id, request: $request);
 
-            if ($response->successful()) {
-                $data = $response->json();
-
-                // RUC devuelve razon_social; DNI devuelve nombres + apellidos
-                $nombre = $data['razon_social']
-                    ?? trim(implode(' ', array_filter([
-                        $data['nombres']          ?? '',
-                        $data['apellido_paterno'] ?? '',
-                        $data['apellido_materno'] ?? '',
-                    ])));
-
-                return response()->json([
-                    'razon_social' => $nombre,
-                    'direccion'    => $data['direccion'] ?? '',
-                    'estado'       => $data['estado']    ?? '',
-                    'condicion'    => $data['condicion'] ?? '',
-                ]);
-            }
-
-            return response()->json(['error' => 'No encontrado en SUNAT/RENIEC'], 404);
-        } catch (\Exception) {
-            return response()->json(['error' => 'Error al consultar la API'], 500);
+            // Se conserva el shape exacto que ya espera el frontend Inertia actual.
+            return response()->json([
+                'razon_social' => $resultado->nombreORazonSocial,
+                'direccion' => $resultado->direccion ?? '',
+                'estado' => $resultado->estado ?? '',
+                'condicion' => $resultado->condicion ?? '',
+            ]);
+        } catch (ConsultaException $excepcion) {
+            return response()->json(['error' => $excepcion->getMessage()], $excepcion->httpStatus);
         }
     }
 }

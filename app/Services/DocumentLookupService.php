@@ -2,120 +2,68 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Cache;
+use App\Consultas\Exceptions\ConsultaException;
+use App\Consultas\Services\ConsultaService;
 
+/**
+ * @deprecated Adaptador de compatibilidad. La lógica real vive ahora en
+ * App\Consultas (ConsultaService + ApiPeruProvider). Esta clase existe
+ * únicamente para que cualquier código que aún inyecte
+ * App\Services\DocumentLookupService siga funcionando sin cambios mientras
+ * se termina de migrar (ver ConsultController::lookupDocument y
+ * ClienteController::lookupRuc). Se registra cada invocación para poder
+ * confirmar, por logs, cuándo ya no queda tráfico y es seguro eliminarla.
+ *
+ * NO usar esta clase en código nuevo: inyectar directamente
+ * App\Consultas\Services\ConsultaService.
+ */
 class DocumentLookupService
 {
-    private string $baseUrl;
-    private string $token;
-
-    public function __construct()
-    {
-        $this->baseUrl = rtrim(config('facturacion.lookup.base_url'), '/');
-        $this->token   = config('facturacion.lookup.token');
+    public function __construct(
+        private readonly ConsultaService $consultas,
+    ) {
     }
 
+    /**
+     * Mantiene el shape de respuesta legado exacto que ya consumía
+     * ConsultController::lookupDocument, para no romper al POS.
+     */
     public function lookup(string $tipo, string $numero): ?array
     {
-        $cacheKey = "doc_lookup:{$tipo}:{$numero}";
+        \Log::info('DocumentLookupService (legacy) invocado', ['tipo' => $tipo, 'numero' => $numero]);
 
-        // Solo cachear resultados exitosos; nunca cachear null para que los reintentos funcionen
-        if (Cache::has($cacheKey)) {
-            return Cache::get($cacheKey);
-        }
-
-        $result = $tipo === '6'
-            ? $this->lookupRuc($numero)
-            : $this->lookupDni($numero);
-
-        if ($result !== null) {
-            Cache::put($cacheKey, $result, now()->addHours(24));
-        }
-
-        return $result;
-    }
-
-    private function lookupRuc(string $ruc): ?array
-    {
         try {
-            // apis.net.pe v1: GET /v1/ruc?numero={ruc}  Autorización: Bearer {token}
-            $response = Http::timeout(8)
-                ->withToken($this->token)
-                ->acceptJson()
-                ->get("{$this->baseUrl}/v1/ruc", ['numero' => $ruc]);
+            if ($tipo === '6') {
+                $resultado = $this->consultas->consultarRuc($numero);
 
-            if ($response->successful()) {
-                $data = $response->json();
-                $data = $data['data'] ?? $data;
-
-                $razonSocial = $data['razonSocial']
-                    ?? $data['nombre_o_razon_social']
-                    ?? $data['nombre']   // campo en respuesta v1
-                    ?? null;
-
-                if (!empty($razonSocial)) {
-                    return [
-                        'tipo_doc'     => '6',
-                        'num_doc'      => $ruc,
-                        'razon_social' => $razonSocial,
-                        'direccion'    => $data['direccion']  ?? $data['direccion_completa'] ?? '',
-                        'estado'       => $data['estado']     ?? '',
-                        'condicion'    => $data['condicion']  ?? '',
-                        'source'       => 'sunat',
-                    ];
-                }
-
-                \Log::error("RUC {$ruc}: respuesta OK pero sin razonSocial", ['body' => $data]);
-            } else {
-                \Log::error("RUC {$ruc}: HTTP {$response->status()} desde apis.net.pe", ['body' => $response->body()]);
+                return [
+                    'tipo_doc' => '6',
+                    'num_doc' => $resultado->numeroDocumento,
+                    'razon_social' => $resultado->nombreORazonSocial,
+                    'direccion' => $resultado->direccion ?? '',
+                    'estado' => $resultado->estado ?? '',
+                    'condicion' => $resultado->condicion ?? '',
+                    'source' => 'sunat',
+                ];
             }
-        } catch (\Throwable $e) {
-            \Log::error("RUC lookup excepción para {$ruc}: " . $e->getMessage());
+
+            $resultado = $this->consultas->consultarDni($numero);
+
+            return [
+                'tipo_doc' => '1',
+                'num_doc' => $resultado->numeroDocumento,
+                'razon_social' => $resultado->nombreORazonSocial,
+                'nombres' => $resultado->nombres ?? '',
+                'apellido_paterno' => $resultado->apellidoPaterno ?? '',
+                'apellido_materno' => $resultado->apellidoMaterno ?? '',
+                'direccion' => $resultado->direccion ?? '',
+                'source' => 'reniec',
+            ];
+        } catch (ConsultaException $excepcion) {
+            // Preserva el contrato original: null en vez de excepción.
+            \Log::error("Lookup legado falló para {$tipo}:{$numero}: " . $excepcion->getMessage());
+
+            return null;
         }
-
-        return null;
-    }
-
-    private function lookupDni(string $dni): ?array
-    {
-        try {
-            // apis.net.pe v1: GET /v1/dni?numero={dni}  Autorización: Bearer {token}
-            $response = Http::timeout(8)
-                ->withToken($this->token)
-                ->acceptJson()
-                ->get("{$this->baseUrl}/v1/dni", ['numero' => $dni]);
-
-            if ($response->successful()) {
-                $data = $response->json();
-                $data = $data['data'] ?? $data;
-
-                $nombres        = $data['nombres']         ?? null;
-                $apPaterno      = $data['apellidoPaterno'] ?? $data['apellido_paterno'] ?? '';
-                $apMaterno      = $data['apellidoMaterno'] ?? $data['apellido_materno'] ?? '';
-                $nombreCompleto = $data['nombreCompleto']  ?? $data['nombre_completo']  ?? null;
-
-                if (!empty($nombres) || !empty($nombreCompleto)) {
-                    return [
-                        'tipo_doc'         => '1',
-                        'num_doc'          => $dni,
-                        'razon_social'     => $nombreCompleto ?? trim("{$apPaterno} {$apMaterno} {$nombres}"),
-                        'nombres'          => $nombres ?? '',
-                        'apellido_paterno' => $apPaterno,
-                        'apellido_materno' => $apMaterno,
-                        'direccion'        => $data['direccion'] ?? $data['direccion_completa'] ?? '',
-                        'source'           => 'reniec',
-                    ];
-                }
-
-                \Log::error("DNI {$dni}: respuesta OK pero sin nombres", ['body' => $data]);
-            } else {
-                \Log::error("DNI {$dni}: HTTP {$response->status()} desde apis.net.pe", ['body' => $response->body()]);
-            }
-        } catch (\Throwable $e) {
-            \Log::error("DNI lookup excepción para {$dni}: " . $e->getMessage());
-        }
-
-        return null;
     }
 }

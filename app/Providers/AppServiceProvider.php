@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use App\Consultas\Contracts\IdentityProviderInterface;
+use App\Consultas\Providers\ApiPeru\ApiPeruClient;
+use App\Consultas\Providers\ApiPeru\ApiPeruProvider;
 use App\Events\DocumentCreated;
 use App\Events\PaymentFailed;
 use App\Events\SubscriptionCreated;
@@ -31,6 +34,23 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(PdfGeneratorService::class);
         $this->app->singleton(PlanService::class);
+
+        $this->app->bind(IdentityProviderInterface::class, function ($app) {
+            $driver = config('consultas.default_provider');
+
+            return match ($driver) {
+                'apiperu' => new ApiPeruProvider(
+                    new ApiPeruClient(
+                        baseUrl: config('consultas.providers.apiperu.base_url'),
+                        token: config('consultas.providers.apiperu.token'),
+                        timeout: config('consultas.providers.apiperu.timeout'),
+                    ),
+                ),
+                default => throw new \InvalidArgumentException(
+                    "Proveedor de consultas no soportado: {$driver}",
+                ),
+            };
+        });
     }
 
     /**

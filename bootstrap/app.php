@@ -79,6 +79,16 @@ return Application::configure(basePath: dirname(__DIR__))
                 return null; // Dejar que Laravel renderice normal (HTML)
             }
 
+            // ConsultaException (módulo de consultas DNI/RUC): mensaje seguro
+            // y HTTP status definido por la propia excepción. Nunca se expone
+            // el error interno del proveedor externo.
+            if ($e instanceof \App\Consultas\Exceptions\ConsultaException) {
+                return response()->json([
+                    'estado' => 'error',
+                    'mensaje' => $e->getMessage(),
+                ], $e->httpStatus);
+            }
+
             // ValidationException: mantener 422 con 'errores'
             if ($e instanceof \Illuminate\Validation\ValidationException) {
                 return response()->json([

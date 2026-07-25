@@ -42,8 +42,7 @@ return [
 
     'internal_token' => env('INTERNAL_TOKEN'),
 
-    'apis_net_pe' => [
-        'token' => env('APIS_NET_PE_TOKEN'),
-    ],
+    // 'apis_net_pe' se retiró: ClienteController::lookupRuc ahora usa
+    // App\Consultas\Services\ConsultaService (ver config/consultas.php).
 
 ];

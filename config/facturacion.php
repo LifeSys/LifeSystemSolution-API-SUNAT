@@ -47,10 +47,10 @@ return [
         'pse_razon_social' => env('SUNAT_RAZON_SOCIAL_PSE', ''),
     ],
 
-    'lookup' => [
-        'token' => env('APIS_NET_PE_TOKEN', env('LOOKUP_API_TOKEN', '')),
-        'base_url' => 'https://api.apis.net.pe',
-    ],
+    // 'lookup' se retiró: la consulta DNI/RUC ahora vive en config('consultas'),
+    // usada por App\Consultas\Services\ConsultaService. Ver Fase 5 de la
+    // migración a ApiPeru.dev (DocumentLookupService quedó como adaptador
+    // de compatibilidad, ya no lee esta clave).
 
     // Plan limits are now managed via PlanService + plans DB table.
     // See PlanSeeder for current plan definitions.

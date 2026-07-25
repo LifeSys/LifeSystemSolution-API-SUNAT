@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\BoletaController;
 use App\Http\Controllers\Api\V1\ClientController;
 use App\Http\Controllers\Api\V1\ConsultController;
+use App\Http\Controllers\Api\V1\Consultas\ConsultaController;
 use App\Http\Controllers\Api\V1\CpeConsultaController;
 use App\Http\Controllers\Api\V1\CreditNoteController;
 use App\Http\Controllers\Api\V1\DebitNoteController;
@@ -167,6 +168,13 @@ Route::prefix('v1')->middleware(['resolve.tenant', 'throttle:api', 'log.api', 'u
     // Buscar RUC/DNI (local + SUNAT/RENIEC)
     Route::get('buscar-documento', [ConsultController::class, 'lookupDocument']);
 
+    // Módulo Consultas: DNI/RUC vía ApiPeru.dev (proveedor configurable en config/consultas.php)
+    Route::prefix('consulta')->group(function () {
+        Route::post('dni', [ConsultaController::class, 'dni']);
+        Route::post('ruc', [ConsultaController::class, 'ruc']);
+        Route::post('dni-ruc', [ConsultaController::class, 'dniRuc']);
+    });
+
     // Empresa (perfil)
     Route::get('empresa', [TenantController::class, 'show']);
     Route::put('empresa', [TenantController::class, 'update']);
@@ -294,58 +302,6 @@ Route::prefix('v1')->middleware(['resolve.tenant', 'throttle:api', 'log.api', 'u
     Route::get('suscripcion/pagos', [SubscriptionController::class, 'payments']);
     Route::get('suscripcion/uso', [SubscriptionController::class, 'usage']);
 });
-
-// ── Diagnóstico temporal (solo con APP_DEBUG=true) ───────────────────────────
-if (config('app.debug')) {
-    Route::get('debug/lookup', function (\Illuminate\Http\Request $request) {
-        $numero = $request->input('numero', '20207845044');
-        $tipo   = $request->input('tipo', '6');
-        $token  = config('facturacion.lookup.token');
-        $base   = config('facturacion.lookup.base_url');
-
-        $endpoint = $tipo === '6' ? "{$base}/v2/sunat/ruc" : "{$base}/v2/reniec/dni";
-        $http = \Illuminate\Support\Facades\Http::timeout(10)->acceptJson();
-
-        $results = [];
-
-        // Formato 1: Authorization: Bearer {token}
-        try {
-            $r = $http->withToken($token)->get($endpoint, ['numero' => $numero]);
-            $results['bearer'] = ['status' => $r->status(), 'body' => $r->json() ?? $r->body()];
-        } catch (\Throwable $e) { $results['bearer'] = ['error' => $e->getMessage()]; }
-
-        // Formato 2: Authorization: {token} (sin "Bearer")
-        try {
-            $r = $http->withHeaders(['Authorization' => $token])->get($endpoint, ['numero' => $numero]);
-            $results['raw_header'] = ['status' => $r->status(), 'body' => $r->json() ?? $r->body()];
-        } catch (\Throwable $e) { $results['raw_header'] = ['error' => $e->getMessage()]; }
-
-        // Formato 3: ?token={token} en query string (v2)
-        try {
-            $r = $http->get($endpoint, ['numero' => $numero, 'token' => $token]);
-            $results['query_param_v2'] = ['status' => $r->status(), 'body' => $r->json() ?? $r->body()];
-        } catch (\Throwable $e) { $results['query_param_v2'] = ['error' => $e->getMessage()]; }
-
-        // Formato 4: v1 endpoint con token como query param (era lo que funcionaba antes)
-        $endpointV1 = $tipo === '6' ? "{$base}/v1/ruc" : "{$base}/v1/dni";
-        try {
-            $r = $http->get($endpointV1, ['numero' => $numero, 'token' => $token]);
-            $results['v1_query_param'] = ['endpoint' => $endpointV1, 'status' => $r->status(), 'body' => $r->json() ?? $r->body()];
-        } catch (\Throwable $e) { $results['v1_query_param'] = ['error' => $e->getMessage()]; }
-
-        // Formato 5: v1 endpoint con Bearer
-        try {
-            $r = $http->withToken($token)->get($endpointV1, ['numero' => $numero]);
-            $results['v1_bearer'] = ['endpoint' => $endpointV1, 'status' => $r->status(), 'body' => $r->json() ?? $r->body()];
-        } catch (\Throwable $e) { $results['v1_bearer'] = ['error' => $e->getMessage()]; }
-
-        return response()->json([
-            'token_preview' => $token ? substr($token, 0, 12) . '...' : '(vacío)',
-            'endpoint_v2'   => $endpoint . '?numero=' . $numero,
-            'results'       => $results,
-        ]);
-    });
-}
 
 // ── API Bridge para el SaaS principal ───────────────────────────────────────
 // Protegido con X-Bridge-Key (SAAS_BRIDGE_SECRET).
