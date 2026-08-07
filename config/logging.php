@@ -73,6 +73,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'sunat' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/sunat.log'),
+            'level' => env('LOG_SUNAT_LEVEL', 'info'),
+            'days' => env('LOG_SUNAT_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
