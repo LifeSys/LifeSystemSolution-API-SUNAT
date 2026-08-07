@@ -176,6 +176,9 @@ Route::middleware(['auth', 'admin'])
         Route::delete('planes/{plan}',        [\App\Http\Controllers\Admin\PlanController::class, 'destroy'])->name('planes.destroy');
         Route::post('planes/{plan}/toggle',   [\App\Http\Controllers\Admin\PlanController::class, 'toggle'])->name('planes.toggle');
 
+        // Logs de operación SUNAT/API
+        Route::get('logs',                    [\App\Http\Controllers\Admin\LogController::class, 'index'])->name('logs.index');
+
         // Configuración global de emisión (switches ilimitado global / nuevas empresas)
         Route::get('configuracion',           [\App\Http\Controllers\Admin\ConfiguracionController::class, 'edit'])->name('configuracion');
         Route::put('configuracion',           [\App\Http\Controllers\Admin\ConfiguracionController::class, 'update'])->name('configuracion.update');

@@ -262,6 +262,7 @@ class GreenterService
             $result = $api->sendXml($despatch->getName(), $signedXml);
         } catch (\Throwable $e) {
             if (! $this->isMissingGreTokenError($e)) {
+                $this->logSunatException('gre_despatch_exception', $despatch->getName(), $endpoints['guias_cpe'], $e);
                 throw $e;
             }
 
@@ -383,7 +384,13 @@ class GreenterService
             'xml_sha256' => hash('sha256', $signedXml),
         ]);
 
-        $result = $see->sendXml(get_class($document), $document->getName(), $signedXml);
+        try {
+            $result = $see->sendXml(get_class($document), $document->getName(), $signedXml);
+        } catch (\Throwable $e) {
+            $this->logSunatException('cpe_exception', $document->getName(), $endpoint, $e);
+            throw $e;
+        }
+
         $this->logSunatResponse('cpe_response', $document->getName(), $endpoint, $result);
         $xml = $signedXml;
 
@@ -660,6 +667,20 @@ class GreenterService
         }
 
         Log::channel('sunat')->info('[SUNAT][RESPONSE] ' . $event, $context);
+    }
+
+    private function logSunatException(string $event, string $documentName, ?string $endpoint, \Throwable $e): void
+    {
+        Log::channel('sunat')->error('[SUNAT][EXCEPTION] ' . $event, [
+            'tenant_id' => $this->tenant->id,
+            'tenant_ruc' => $this->tenant->ruc,
+            'environment' => $this->tenant->environment,
+            'document_name' => $documentName,
+            'endpoint' => $endpoint,
+            'exception_class' => get_class($e),
+            'exception_code' => $e->getCode(),
+            'exception_message' => $this->sanitizeUtf8($e->getMessage()),
+        ]);
     }
 
     private function sunatEndpoints(): array

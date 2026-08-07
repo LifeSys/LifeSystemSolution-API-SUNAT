@@ -1,5 +1,14 @@
 import { Link, usePage } from '@inertiajs/react';
-import { Building2, CreditCard, Hash, LayoutGrid, MapPin, Settings2, ShieldCheck } from 'lucide-react';
+import {
+    ActivitySquare,
+    Building2,
+    CreditCard,
+    Hash,
+    LayoutGrid,
+    MapPin,
+    Settings2,
+    ShieldCheck,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
 import { NavMain } from '@/components/nav-main';
 import {
@@ -13,8 +22,8 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { useCurrentUrl } from '@/hooks/use-current-url';
-import { dashboard } from '@/routes';
 import type { NavItem } from '@/types';
+import { dashboard } from '@/routes';
 
 const mainNavItems: NavItem[] = [
     {
@@ -25,16 +34,18 @@ const mainNavItems: NavItem[] = [
 ];
 
 const adminNavItems: NavItem[] = [
-    { title: 'Empresas',   href: '/admin/empresas',   icon: Building2 },
+    { title: 'Empresas', href: '/admin/empresas', icon: Building2 },
     { title: 'Sucursales', href: '/admin/sucursales', icon: MapPin },
-    { title: 'Series',     href: '/admin/series',     icon: Hash },
-    { title: 'Planes',     href: '/admin/planes',     icon: CreditCard },
+    { title: 'Series', href: '/admin/series', icon: Hash },
+    { title: 'Planes', href: '/admin/planes', icon: CreditCard },
+    { title: 'Logs API/SUNAT', href: '/admin/logs', icon: ActivitySquare },
     { title: 'Configuración', href: '/admin/configuracion', icon: Settings2 },
 ];
 
 export function AppSidebar() {
     const { isCurrentOrParentUrl } = useCurrentUrl();
-    const { auth } = usePage<{ auth: { user: { is_admin?: boolean } } }>().props;
+    const { auth } = usePage<{ auth: { user: { is_admin?: boolean } } }>()
+        .props;
     const isAdmin = auth?.user?.is_admin === true;
 
     return (
@@ -65,7 +76,9 @@ export function AppSidebar() {
                                 <SidebarMenuItem key={item.title}>
                                     <SidebarMenuButton
                                         asChild
-                                        isActive={isCurrentOrParentUrl(item.href)}
+                                        isActive={isCurrentOrParentUrl(
+                                            item.href,
+                                        )}
                                         tooltip={{ children: item.title }}
                                     >
                                         <Link href={item.href} prefetch>
