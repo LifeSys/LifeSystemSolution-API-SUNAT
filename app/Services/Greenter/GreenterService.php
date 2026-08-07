@@ -22,6 +22,7 @@ use Greenter\Sunat\GRE\Configuration;
 use Greenter\Ws\Services\SunatEndpoints;
 use Greenter\XMLSecLibs\Sunat\SignedXml;
 use GuzzleHttp\Client;
+use Illuminate\Support\Facades\Log;
 
 class GreenterService
 {
@@ -248,6 +249,14 @@ class GreenterService
 
         // 4. Enviar. Nubefact beta puede invalidar tokens del cache; reintentar
         // una vez con token fresco cuando responde "Token NO existe".
+        $endpoints = $this->sunatEndpoints();
+        $this->logSunatRequest('gre_despatch_send', $despatch->getName(), $endpoints['guias_cpe'], [
+            'tipo_documento' => $tipoDocumento,
+            'mod_traslado' => $modTraslado,
+            'xml_length' => strlen($signedXml),
+            'xml_sha256' => hash('sha256', $signedXml),
+        ]);
+
         try {
             $api = $this->createApi();
             $result = $api->sendXml($despatch->getName(), $signedXml);
@@ -266,6 +275,8 @@ class GreenterService
             $api = $this->createApi();
             $result = $api->sendXml($despatch->getName(), $signedXml);
         }
+
+        $this->logSunatResponse('gre_despatch_response', $despatch->getName(), $endpoints['guias_cpe'], $result);
 
         return [
             'result' => $result,
@@ -365,7 +376,15 @@ class GreenterService
         $signedXml = $signer->signXml($unsignedXml);
         $this->lastXml = $signedXml;
 
+        $endpoint = $this->endpointForDocument($document);
+        $this->logSunatRequest('cpe_send', $document->getName(), $endpoint, [
+            'document_class' => get_class($document),
+            'xml_length' => strlen($signedXml),
+            'xml_sha256' => hash('sha256', $signedXml),
+        ]);
+
         $result = $see->sendXml(get_class($document), $document->getName(), $signedXml);
+        $this->logSunatResponse('cpe_response', $document->getName(), $endpoint, $result);
         $xml = $signedXml;
 
         // Verificar primero si es BillResult con CDR (incluye observaciones 3xxx)
@@ -581,6 +600,78 @@ class GreenterService
         }
 
         return $value;
+    }
+
+    private function endpointForDocument(DocumentInterface $document): string
+    {
+        $env = $this->tenant->environment;
+
+        if ($document instanceof \Greenter\Model\Retention\Retention || $document instanceof \Greenter\Model\Perception\Perception) {
+            return config("facturacion.sunat.{$env}.retention");
+        }
+
+        return config("facturacion.sunat.{$env}.fe");
+    }
+
+    /**
+     * Registra hacia dónde se enviará el XML a SUNAT sin guardar credenciales ni el XML completo.
+     */
+    private function logSunatRequest(string $event, string $documentName, ?string $endpoint, array $extra = []): void
+    {
+        Log::channel('sunat')->info('[SUNAT][REQUEST] ' . $event, array_merge([
+            'tenant_id' => $this->tenant->id,
+            'tenant_ruc' => $this->tenant->ruc,
+            'environment' => $this->tenant->environment,
+            'document_name' => $documentName,
+            'endpoint' => $endpoint,
+        ], $extra));
+    }
+
+    /**
+     * Registra la respuesta recibida de SUNAT para validar si el envío llegó correctamente.
+     */
+    private function logSunatResponse(string $event, string $documentName, ?string $endpoint, mixed $result): void
+    {
+        $context = [
+            'tenant_id' => $this->tenant->id,
+            'tenant_ruc' => $this->tenant->ruc,
+            'environment' => $this->tenant->environment,
+            'document_name' => $documentName,
+            'endpoint' => $endpoint,
+            'result_class' => is_object($result) ? get_class($result) : gettype($result),
+        ];
+
+        if (is_object($result) && method_exists($result, 'isSuccess')) {
+            $context['success'] = $result->isSuccess();
+        }
+
+        if (is_object($result) && method_exists($result, 'getError') && $result->getError()) {
+            $context['error_code'] = (string) $result->getError()->getCode();
+            $context['error_message'] = $this->sanitizeUtf8((string) $result->getError()->getMessage());
+        }
+
+        if ($result instanceof BillResult && $result->getCdrResponse()) {
+            $context['cdr_code'] = (string) $result->getCdrResponse()->getCode();
+            $context['cdr_description'] = $this->sanitizeUtf8((string) $result->getCdrResponse()->getDescription());
+        }
+
+        if ($result instanceof SummaryResult) {
+            $context['ticket'] = $result->getTicket();
+        }
+
+        Log::channel('sunat')->info('[SUNAT][RESPONSE] ' . $event, $context);
+    }
+
+    private function sunatEndpoints(): array
+    {
+        $env = $this->tenant->environment;
+
+        return [
+            'fe' => config("facturacion.sunat.{$env}.fe"),
+            'retention' => config("facturacion.sunat.{$env}.retention"),
+            'guias_auth' => config("facturacion.sunat.{$env}.guias_auth"),
+            'guias_cpe' => config("facturacion.sunat.{$env}.guias_cpe"),
+        ];
     }
 
     private function resolveSee(DocumentInterface $document): See
