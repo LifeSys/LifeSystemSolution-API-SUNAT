@@ -35,5 +35,13 @@ QUEUE_PID=$!
   done
 ) &
 
+echo "==> Iniciando scheduler de Laravel en segundo plano..."
+(
+  while true; do
+    php artisan schedule:run >> /dev/null 2>&1
+    sleep 60
+  done
+) &
+
 echo "==> Iniciando servidor..."
 exec php artisan serve --host=0.0.0.0 --port="${PORT:-8000}"
