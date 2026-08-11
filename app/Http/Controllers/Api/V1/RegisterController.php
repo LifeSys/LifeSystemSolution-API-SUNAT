@@ -96,7 +96,10 @@ class RegisterController extends Controller
         $storage = new DocumentStorageService();
         $certPath = $storage->storeCertificate($tenant, $pemContent);
 
-        $updateData = ['certificate_path' => $certPath];
+        $updateData = [
+            'certificate_path' => $certPath,
+            'certificate_content' => base64_encode($pemContent),
+        ];
 
         if ($request->hasFile('logo')) {
             $updateData['logo_path'] = $request->file('logo')->store(
