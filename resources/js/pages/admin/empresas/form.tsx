@@ -100,7 +100,7 @@ const Section = ({
 
 export default function EmpresasForm({ tenant, planes, usuarios, modo, emisionGlobalIlimitada }: Props) {
     const editando = modo === 'editar';
-    const { data, setData, post, put, processing, errors, progress } = useForm({
+    const { data, setData, post, put, transform, processing, errors, progress } = useForm({
         ruc: tenant.ruc,
         razon_social: tenant.razon_social,
         nombre_comercial: tenant.nombre_comercial ?? '',
@@ -139,15 +139,21 @@ export default function EmpresasForm({ tenant, planes, usuarios, modo, emisionGl
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-        // Solo forzamos multipart cuando realmente hay un archivo — con
-        // JSON el flujo es más simple y evita el PUT+multipart que en
-        // algunos setups deja el body vacío antes de llegar a Laravel.
         const hayArchivos = data.certificado instanceof File || data.logo instanceof File;
-        const options = hayArchivos ? { forceFormData: true } : {};
+
         if (editando && tenant.id) {
-            put(`/admin/empresas/${tenant.id}`, options);
+            if (hayArchivos) {
+                // PUT + multipart puede llegar con el body vacio en algunos
+                // setups (proxy/edge de Railway). Forzamos un POST real, con
+                // _method=put agregado explicitamente al FormData, que es el
+                // mecanismo que Laravel garantiza soportar para uploads.
+                transform((data) => ({ ...data, _method: 'put' }));
+                post(`/admin/empresas/${tenant.id}`, { forceFormData: true });
+            } else {
+                put(`/admin/empresas/${tenant.id}`);
+            }
         } else {
-            post('/admin/empresas', options);
+            post('/admin/empresas', hayArchivos ? { forceFormData: true } : {});
         }
     };
 
