@@ -40,6 +40,7 @@ class Tenant extends Model
         'client_secret',
         'certificate_path',
         'certificate_password',
+        'certificate_content',
         'environment',
         'webhook_url',
         'logo_path',
@@ -67,6 +68,7 @@ class Tenant extends Model
         'sol_pass',
         'client_secret',
         'certificate_password',
+        'certificate_content',
         'api_secret',
         'sire_client_secret',
     ];
@@ -78,6 +80,7 @@ class Tenant extends Model
             'sol_pass' => 'encrypted',
             'client_secret' => 'encrypted',
             'certificate_password' => 'encrypted',
+            'certificate_content' => 'encrypted',
             'telefonos' => 'array',
             'emails' => 'array',
             'cuentas_bancarias' => 'array',
@@ -221,10 +224,20 @@ class Tenant extends Model
 
     public function getCertificateContent(): ?string
     {
-        if (! $this->certificate_path || ! file_exists($this->certificate_path)) {
-            return null;
+        // Prioridad: (1) certificate_content en BD — persiste entre reinicios del
+        // contenedor. (2) certificate_path en disco — legado, se pierde en cada
+        // redeploy en Railway sin volumen persistente.
+        if (! empty($this->certificate_content)) {
+            $decoded = base64_decode($this->certificate_content, strict: true);
+            if ($decoded !== false) {
+                return $decoded;
+            }
         }
 
-        return file_get_contents($this->certificate_path);
+        if ($this->certificate_path && file_exists($this->certificate_path)) {
+            return file_get_contents($this->certificate_path);
+        }
+
+        return null;
     }
 }
