@@ -457,8 +457,15 @@ class TenantController extends Controller
     private function guardarArchivos(TenantRequest $request, Tenant $tenant): void
     {
         if ($request->hasFile('certificado')) {
+            $certContent = file_get_contents($request->file('certificado')->getRealPath());
             $path = $request->file('certificado')->store("tenants/{$tenant->id}/certs", 'local');
-            $update = ['certificate_path' => Storage::disk('local')->path($path)];
+            // certificate_path queda solo como referencia/legado (se pierde en cada
+            // redeploy en Railway sin volumen persistente). La fuente de verdad es
+            // certificate_content, guardada en BD para sobrevivir a reinicios.
+            $update = [
+                'certificate_path' => Storage::disk('local')->path($path),
+                'certificate_content' => base64_encode($certContent),
+            ];
             if ($request->filled('contrasena_certificado')) {
                 $update['certificate_password'] = $request->input('contrasena_certificado');
             }

@@ -85,7 +85,10 @@ class ConfiguracionController extends Controller
             $certService = new \App\Services\Storage\DocumentStorageService();
             $ext = $request->file('certificate')->getClientOriginalExtension();
             $certPath = $certService->storeCertificate($tenant, $certContent, 'cert.' . $ext);
-            $tenant->update(['certificate_path' => $certPath]);
+            $tenant->update([
+                'certificate_path' => $certPath,
+                'certificate_content' => base64_encode($certContent),
+            ]);
         }
         if ($request->filled('certificate_password')) {
             $tenant->update(['certificate_password' => $data['certificate_password']]);

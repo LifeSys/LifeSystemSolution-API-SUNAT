@@ -213,6 +213,7 @@ class TenantController extends Controller
         $certPath = $storage->storeCertificate($tenant, $pemContent);
         $tenant->update([
             'certificate_path' => $certPath,
+            'certificate_content' => base64_encode($pemContent),
             'certificate_password' => $request->input('contrasena_certificado'),
         ]);
 

@@ -82,6 +82,7 @@ class SaasAuthController extends Controller
             $ext = $request->file('certificate')->getClientOriginalExtension();
             $certPath = $certService->storeCertificate($tenant, $certContent, 'cert.' . $ext);
             $tenant->certificate_path = $certPath;
+            $tenant->certificate_content = base64_encode($certContent);
         }
         
         if ($request->filled('certificate_password')) {
