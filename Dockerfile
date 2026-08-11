@@ -1,4 +1,10 @@
 FROM php:8.3-fpm-alpine AS base
+# Activa el proveedor "legacy" de OpenSSL 3.x (Alpine lo trae desactivado por
+# defecto). Sin esto, openssl_pkcs12_read() no puede leer certificados .p12
+# antiguos cifrados con algoritmos como RC2-40-CBC, muy comunes en
+# certificados digitales peruanos - falla con "digital envelope routines::unsupported".
+RUN sed -i 's/^providers = provider_sect$/providers = provider_sect\n\n[provider_sect]\ndefault = default_sect\nlegacy = legacy_sect\n\n[default_sect]\nactivate = 1\n\n[legacy_sect]\nactivate = 1/' /etc/ssl/openssl.cnf \
+    || printf '\n[openssl_init]\nproviders = provider_sect\n\n[provider_sect]\ndefault = default_sect\nlegacy = legacy_sect\n\n[default_sect]\nactivate = 1\n\n[legacy_sect]\nactivate = 1\n' >> /etc/ssl/openssl.cnf
 # Dependencias del sistema (agregamos nodejs y npm)
 RUN apk add --no-cache \
     postgresql-client \
